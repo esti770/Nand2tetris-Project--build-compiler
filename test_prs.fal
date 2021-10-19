@@ -1,0 +1,359 @@
+vec_token = []
+xml_file = ''
+
+function compile_statement() 
+// code for compiling statements	
+	line = next_token()
+	if "<keyword>" in line 
+		if "if" in line
+			compile_If_Statement()
+
+		elif "while" in line
+			compile_While_Statement()
+
+		elif "let" in line
+			compile_Let_Statement()
+
+		elif "do" in line
+			compile_Do_Statement()
+
+		elif "return" in line
+			compile_Return_Statement()
+		end
+	end
+end
+
+function statements() 
+	xml_file.writeText("<statements>\n")
+	
+	line = next_token()
+	while len(vec_token)> 0 and "<keyword>" in line and "if" in line or "while" in line or "let" in line or "do" in line
+		compile_statement()
+		line = next_token()
+	end
+	
+	if "return" in line
+		compile_statement()
+	end
+	
+	xml_file.writeText("</statements>\n")
+end
+
+/*path_dir = "C:\\Users\\estri\\Documents\\falcon_project\\targil3\\simon_game"
+dir_0 = Directory(path_dir)
+for file in dir_0.read
+	if file[-6:] == "TT.xml"*/
+		jack_file = InputStream("C:\\Users\\estri\\Documents\\falcon_project\\targil3\\simon_game\\MainTT.xml")
+		xml_file = OutputStream("C:\\Users\\estri\\Documents\\falcon_project\\targil3\\simon_game\\MainPRS.xml")
+				
+		str = ''
+		i = 0
+		for line in jack_file.grabLine
+			str += line + "\n"
+		end
+		vec_token = str.split("\n")
+		vec_token = vec_token[1:len(vec_token)-2] // --"token"
+		
+		cla_ss_struct()
+	end
+end					
+
+
+function cla_ss_var_Dec()
+	xml_file.writeText("<classVarDec>\n")
+	
+	xml_file.writeText(current_token()+"\n")// 'static'|'field'
+	xml_file.writeText(current_token()+"\n")// 'void'|type
+	xml_file.writeText(current_token()+"\n")// 'varName' - identifier
+	
+	while ',' in next_token()
+		xml_file.writeText(current_token()+"\n")// ','
+		xml_file.writeText(current_token()+"\n")// 'varName' - identifier
+	end
+	xml_file.writeText(current_token()+"\n")// ';'
+	
+	xml_file.writeText("</classVarDec>\n")
+end
+
+function cla_ss_struct()
+	xml_file.writeText("<class>\n")
+	
+	xml_file.writeText(current_token()+"\n")//keyword -- class
+	xml_file.writeText(current_token()+"\n")//identifier -class name	
+	xml_file.writeText(current_token()+"\n")//'{'
+	
+	while 'static' in next_token() or 'field' in next_token()
+		cla_ss_var_Dec()
+	end
+	while 'constructor' in next_token() or 'function' in next_token() or 'method' in next_token()
+		subroutine_Dec()
+	end
+	
+	xml_file.writeText(current_token()+"\n")//'}'
+	
+	xml_file.writeText("</class>\n")
+end
+
+function subroutine_Dec()
+	xml_file.writeText("<subroutineDec>\n")
+	
+	xml_file.writeText(current_token()+"\n")// 'constructor'|'function'|'method' - identifier
+	xml_file.writeText(current_token()+"\n")// 'void'|type
+	xml_file.writeText(current_token()+"\n")// 'subrotine name' - identifier
+	
+	xml_file.writeText(current_token()+"\n")//'('
+	parameter_list()
+	xml_file.writeText(current_token()+"\n")//')'
+	subroutine_Body()
+	
+	xml_file.writeText("</subroutineDec>\n")
+end
+
+function subroutine_Body()
+	xml_file.writeText("<subroutineBody>\n")
+	
+	xml_file.writeText(current_token()+"\n")// '{'
+	while "var" in next_token()
+		var_Dec()
+	end
+	statements()
+	xml_file.writeText(current_token()+"\n")// '}'
+	xml_file.writeText("</subroutineBody>\n")
+
+end
+
+function var_Dec()
+	xml_file.writeText("<varDec>\n")
+	
+	xml_file.writeText(current_token()+"\n")// 'var'
+	xml_file.writeText(current_token()+"\n")// type
+	xml_file.writeText(current_token()+"\n")// varName
+	
+	while ',' in next_token()
+			xml_file.writeText(current_token()+"\n")//','
+			xml_file.writeText(current_token()+"\n")// varName
+	end
+	xml_file.writeText(current_token()+"\n")//';'
+	
+	xml_file.writeText("</varDec>\n")
+end
+
+function parameter_list()
+	xml_file.writeText("<parameterList>\n")
+
+	if not ')' in next_token()
+		xml_file.writeText(current_token()+"\n")// type -int|char|boolean|className
+		xml_file.writeText(current_token()+"\n")// varName- identifier
+		while ',' in next_token()
+			xml_file.writeText(current_token()+"\n")//','
+			xml_file.writeText(current_token()+"\n")// type -int|char|boolean|className
+			xml_file.writeText(current_token()+"\n")// varName- identifier
+		end
+	end
+	
+	xml_file.writeText("</parameterList>\n")
+end
+
+function subrotineCall()
+	//xml_file.writeText("<subrotineCall>\n")
+	xml_file.writeText(current_token()+"\n")//identifier	
+	
+	if '(' in next_token()
+		xml_file.writeText(current_token()+"\n")//'('
+		expression_list()
+		xml_file.writeText(current_token()+"\n")//')'
+		
+	elif '.' in next_token()
+		xml_file.writeText(current_token()+"\n")//'.'
+		xml_file.writeText(current_token()+"\n")//subrotine name	
+		xml_file.writeText(current_token()+"\n")//'('
+		expression_list()
+		xml_file.writeText(current_token()+"\n")//')'
+	end
+	//xml_file.writeText("</subrotineCall>\n")
+end
+
+function expression_list()
+	
+	xml_file.writeText("<expressionList>\n")
+	if not ')' in next_token()
+		expression()
+		while ',' in next_token()
+			xml_file.writeText(current_token()+"\n")//','
+			expression()
+		end
+	end
+	xml_file.writeText("</expressionList>\n")
+end
+
+function term()
+	xml_file.writeText("<term>\n")
+	
+	if 'integerConstant' in next_token() or 'stringConstant' in next_token() or keyword_constant(next_token())
+		xml_file.writeText(current_token()+"\n")
+	
+	elif '(' in next_token()
+		xml_file.writeText(current_token()+"\n")//'('
+		expression()
+		xml_file.writeText(current_token()+"\n")//')'
+	
+	elif unary_op(next_token())
+		xml_file.writeText(current_token()+"\n")//unary_op	
+		term()
+	
+	elif 'identifier' in next_token()
+		xml_file.writeText(current_token()+"\n")//identifier	
+		
+		if '[' in next_token()
+			xml_file.writeText(current_token()+"\n")//'['
+			expression()
+			xml_file.writeText(current_token()+"\n")//']'
+		
+		elif '(' in next_token()
+			expression_list()
+	
+		elif '.' in next_token()
+			xml_file.writeText(current_token()+"\n")//'.'
+			xml_file.writeText(current_token()+"\n")//subrotine name	
+			xml_file.writeText(current_token()+"\n")//'('
+			expression_list()
+			xml_file.writeText(current_token()+"\n")//')'
+		end
+	end
+	xml_file.writeText("</term>\n")
+end
+
+function unary_op(token)
+	return '-' in token or '~' in token
+end
+
+function keyword_constant(token)
+	return "true" in token or "false" in token or "null" in token or "this" in token
+end
+
+function op(p)
+	p = p.split(' ')
+	return p[1] in ['+', '-', '*', '/', '|', '=', "&gt;", "&lt;", "&amp;"]
+end
+
+//function next_token()
+	//return vec_token[0]
+//end
+
+function next_token()
+	if len(vec_token) > 0
+		return vec_token[0]
+	end
+end
+
+function current_token()
+	if len(vec_token) > 0
+		cur = vec_token.front()
+		arrayHead(vec_token)
+		return cur
+	end
+	return
+end
+
+//-------------------------------------------------------------
+
+function expression()
+	xml_file.writeText("<expression>\n")
+	term()
+	while op(next_token())
+		xml_file.writeText(current_token()+"\n")//op
+		term()
+	end
+	
+	xml_file.writeText("</expression>\n")
+end
+
+function compile_If_Statement() 
+// code for compiling an if statements
+	xml_file.writeText("<ifStatement>\n")
+	
+	xml_file.writeText(current_token()+"\n") //'if'
+	xml_file.writeText(current_token()+"\n") //'('
+	expression() //expressionS
+	xml_file.writeText(current_token()+"\n") //')'
+	
+	xml_file.writeText(current_token()+"\n") //'{'
+	statements() //statements
+	xml_file.writeText(current_token()+"\n") //'}'
+	
+	if 'else' in next_token() 
+		xml_file.writeText(current_token()+"\n") //'else'
+		
+		xml_file.writeText(current_token()+"\n") //'{'
+		statements() //statements
+		xml_file.writeText(current_token()+"\n") //'}'
+	end
+	xml_file.writeText("</ifStatement>\n")
+
+end
+
+function compile_While_Statement()
+// code for compiling an while statements
+	xml_file.writeText("<whileStatement>\n")
+	
+	xml_file.writeText(current_token()+"\n") //'while'
+	xml_file.writeText(current_token()+"\n") //'('
+	expression() //expression
+	xml_file.writeText(current_token()+"\n") //')'
+	
+	xml_file.writeText(current_token()+"\n") //'{'
+	statements() //statements
+	xml_file.writeText(current_token()+"\n") //'}'
+	
+	xml_file.writeText("</whileStatement>\n")
+	
+/*compileWhileStatement() 
+eat('while’); code to handle 'while' ;
+eat('('); code to handle '(' ;
+compileExpression();
+eat(')'); code to handle ')';
+... */
+end
+
+function compile_Let_Statement()
+	xml_file.writeText("<letStatement>\n")
+	
+	xml_file.writeText(current_token()+"\n") //'let'
+	xml_file.writeText(current_token()+"\n") // varName
+	if '[' in next_token() 
+		xml_file.writeText(current_token()+"\n") //'['
+		expression() //expression
+		xml_file.writeText(current_token()+"\n") //']'
+	end
+	
+	xml_file.writeText(current_token()+"\n") // '='
+	expression() //expression
+	xml_file.writeText(current_token()+"\n") //';'
+
+	xml_file.writeText("</letStatement>\n")
+
+end
+
+function compile_Do_Statement()
+	xml_file.writeText("<doStatement>\n")
+	
+	xml_file.writeText(current_token()+"\n") //'do'
+	subrotineCall()
+	xml_file.writeText(current_token()+"\n") //';'
+	
+	xml_file.writeText("</doStatement>\n")
+end
+
+function compile_Return_Statement()
+	xml_file.writeText("<returnStatement>\n")
+	xml_file.writeText(current_token()+"\n") // 'return'
+	if  not ';' in next_token() 
+		expression()
+	end
+	xml_file.writeText(current_token()+"\n") // ';'
+	
+	xml_file.writeText("</returnStatement>\n")
+	
+end
+
+//---------------------------------------------------------------
