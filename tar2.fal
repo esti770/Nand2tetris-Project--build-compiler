@@ -1,0 +1,651 @@
+point = '.'
+count_true=0
+count_false=0
+count_fun=0
+count_call = 0
+
+function push_segment(seg, off)
+	return @'
+
+@$seg
+D=M
+@$off
+A=D+A
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1'
+	
+end
+
+function push_temp(seg_num, off)
+	return @'
+						
+@$seg_num
+D=A
+@$off
+A=D+A
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1'
+
+end
+
+function push_stat(currentFileName, off)
+	return @'
+	
+@$currentFileName$point$off
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1'
+	
+end
+
+function push_constant(off)
+	return @'
+
+@$off
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1'
+
+end
+
+function pop_segment(seg, off)
+	return @'
+						
+@$seg
+D=M
+@$off
+D=D+A
+@13
+M=D
+@SP
+M=M-1
+@SP
+A=M
+D=M
+@13
+A=M
+M=D'
+
+end
+
+function pop_temp(seg_num, off)
+	return @'
+						
+@$seg_num
+D=A
+@$off
+D=D+A
+@13
+M=D
+@SP
+M=M-1
+@SP
+A=M
+D=M
+@13
+A=M
+M=D'
+
+end
+
+function pop_stat(currentFileName, off)
+	return @'
+
+@$currentFileName$point$off
+D=A
+@13
+M=D
+@SP
+M=M-1
+@SP
+A=M
+D=M
+@13
+A=M
+M=D'
+
+end
+
+function pop_constant(off)
+	return @'
+
+@SP
+M=M-1'
+
+end
+
+function add()
+	return '
+	
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M+D
+@SP
+M=M-1'
+
+end
+
+function sub()
+	return '
+				
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M-D
+@SP
+M=M-1'
+end
+
+function neg()
+	return '
+
+@SP
+A=M
+A=A-1
+D=M
+M=-D'
+
+end
+
+function eq2(count_true, count_false)
+	return @"
+
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+D=M-D
+@IF_TRUE$count_true
+D;JEQ
+D=0
+@SP
+A=M-1
+A=A-1
+M=D
+@IF_FALSE$count_false
+0;JMP
+(IF_TRUE$count_true)
+D=-1
+@SP
+A=M-1
+A=A-1
+M=D
+(IF_FALSE$count_false)    
+@SP
+M=M-1"
+end
+
+function gt(count_true, count_false)
+	return @'
+
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+D=M-D
+@IF_TRUE$count_true
+D;JGT
+D=0
+@SP
+A=M-1
+A=A-1
+M=D
+@IF_FALSE$count_false
+0;JMP
+(IF_TRUE$count_true)
+D=-1
+@SP
+A=M-1
+A=A-1
+M=D
+(IF_FALSE$count_false)
+@SP
+M=M-1'
+end
+
+function lt(count_true, count_false)
+	return @'
+
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+D=M-D
+@IF_TRUE$count_true
+D;JLT
+D=0
+@SP
+A=M-1
+A=A-1
+M=D
+@IF_FALSE$count_false
+0;JMP
+(IF_TRUE$count_true)
+D=-1
+@SP
+A=M-1
+A=A-1
+M=D
+(IF_FALSE$count_false)
+@SP
+M=M-1'
+
+end
+
+function and2()
+	return '
+				
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M&D
+@SP
+M=M-1'
+
+end
+
+function or2()
+	return '
+				
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M|D
+@SP
+M=M-1'
+
+end
+
+function not2()
+	return '
+				
+@SP
+A=M
+A=A-1
+D=M
+M=!D'
+
+end
+
+function label(nameOfFile, nameOfLable)
+	return @'
+
+($nameOfFile$point$nameOfLable)'
+end
+
+function goto(nameOfFile, nameOfLable)
+	return @'
+
+@$nameOfFile$point$nameOfLable
+0;JMP'
+end
+
+function i_f_goto(nameOfFile, nameOfLable)
+	
+	return @'
+
+@SP
+M=M-1
+A=M
+D=M
+@$nameOfFile$point$nameOfLable
+D;JNE'
+end
+
+function call(nameOfFunc, n)
+	numOfArgs = numeric(n) + 5
+	count_call++
+	ReturnAddress = "ReturnAddress"
+	return @'
+
+@$nameOfFunc$point$ReturnAddress$count_call 
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@LCL
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@ARG
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@THIS
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@THAT
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@$numOfArgs
+D=A
+@SP
+D=M-D
+@ARG
+M=D
+
+@SP
+D=M
+@LCL
+M=D
+
+@$nameOfFunc
+0;JMP
+
+($nameOfFunc$point$ReturnAddress$count_call)'
+end
+
+function f_unction(nameOfFunc, localVariables)
+	return @'
+    
+($nameOfFunc)
+@$localVariables
+D=A
+@EndFunc_$count_fun
+D;JEQ
+
+(HeadLoop_$count_fun)
+@SP
+A=M
+M=0
+@SP
+M=M+1
+@HeadLoop_$count_fun
+D=D-1
+D;JNE 
+
+(EndFunc_$count_fun)'
+end
+
+function r_eturn()
+	return @'
+
+@LCL
+D=M
+
+@5
+A=D-A
+D=M
+@13
+M=D
+
+
+@SP
+M=M-1
+
+A=M
+D=M
+@ARG
+A=M
+M=D
+
+@ARG
+D=M
+@SP
+M=D+1
+
+@LCL
+M=M-1
+A=M
+D=M
+@THAT
+M=D
+
+@LCL
+M=M-1
+A=M
+D=M
+@THIS
+M=D
+
+@LCL
+M=M-1
+A=M
+D=M
+@ARG
+M=D
+
+@LCL
+M=M-1
+A=M
+D=M
+@LCL
+M=D
+
+@13
+A=M
+0;JMP'
+end
+
+function i_nit()
+	p = '
+
+@256
+D=A
+@SP
+M=D
+' 
+	return p + call("Sys.init", 0)
+end
+
+function count_vm_file(path_1)
+	count_vm = 0
+	dir_1 = Directory(path_1)
+	for file in dir_1.read
+		if(file[-3:] == ".vm")
+			count_vm++
+		end
+	end
+	return count_vm
+end
+
+path_dir = "C:\\Users\\estri\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\nand2tetris\\nand2tetris\\projects\\08"
+dir = Directory(path_dir)
+for d0 in dir.read
+	if(d0[0] != '.')
+		
+		path_0 = path_dir + "\\" + d0
+		dir_0 = Directory(path_0)
+		for d1 in dir_0.read
+			if(d1[0] != '.')
+				path_1 = path_0 + "\\" + d1
+				dir_1 = Directory(path_1)
+				
+				asm_file = OutputStream(path_1 + "\\" + d1 +".asm")
+				
+				if(count_vm_file(path_1) > 1)
+					asm_file.writeText(i_nit())
+				end
+				
+				for file in dir_1.read
+					
+					if(file[-3:] == ".vm")
+						
+						currentFileName = file[:-3]
+						vm_file = InputStream(path_1 + "\\" + file)
+						
+						for line in vm_file.grabLine///any line in the file
+							
+							if line[:2] != '//'	and line[:2] != ''
+								vec = strSplit(line, ' ')
+								switch vec[0]
+									case 'push'
+										switch vec[1]
+											case 'local', 'argument', 'this', 'that'
+												if vec[1] == 'local' 
+													seg='LCL'
+												end
+												if vec[1] == 'argument'
+													seg='ARG'
+												end
+												if vec[1] == 'this' 
+													seg='THIS'
+												end
+												if vec[1] == 'that'
+													seg='THAT'
+												end
+												off = vec[2]
+												
+												asm_file.writeText(push_segment(seg, off))
+											
+											case 'pointer', 'temp' 
+												seg_num = vec[1] == 'pointer' ? '3' : '5'
+												off = vec[2]
+												asm_file.writeText(push_temp(seg_num, off))
+											
+											case 'static'
+												off = vec[2]
+												asm_file.writeText(push_stat(currentFileName, off))  			
+											
+											case 'constant'
+												off = vec[2] 
+												asm_file.writeText(push_constant(off))
+											
+											default
+										end
+									case 'pop'
+										switch vec[1]
+											case 'local', 'argument', 'this', 'that'
+												if vec[1] == 'local' 
+													seg='LCL'
+												end
+												if vec[1] == 'argument'
+													seg='ARG'
+												end
+												if vec[1] == 'this' 
+													seg='THIS'
+												end
+												if vec[1] == 'that'
+													seg='THAT'
+												end
+												
+												off = vec[2]
+												asm_file.writeText(pop_segment(seg, off))	
+											
+											case 'pointer', 'temp' 
+												seg_num = vec[1] == 'pointer' ? '3' : '5'
+												off = vec[2]
+												asm_file.writeText(pop_temp(seg_num, off))
+											
+											case 'static'
+												off = vec[2]
+												asm_file.writeText(pop_stat(currentFileName, off))		
+											
+											case 'constant'
+												off = vec[2] 
+												asm_file.writeText(pop_constant(off))
+											
+											default
+										end
+									case 'add'
+										asm_file.writeText(add())
+									
+									case 'sub'
+										asm_file.writeText(sub())
+									
+									case 'neg'//neg
+										asm_file.writeText(neg())
+									
+									case 'eq'
+										asm_file.writeText(eq2(count_true, count_false))
+										count_true++
+										count_false++
+
+									case 'gt'
+										asm_file.writeText(gt(count_true, count_false))
+										count_true++
+										count_false++
+
+									case 'lt'
+										asm_file.writeText(lt(count_true, count_false))
+										count_true++
+										count_false++
+									
+									case 'and'//and
+										asm_file.writeText(and2())
+									
+									case 'or'//or
+										asm_file.writeText(or2())
+									
+									case 'not'
+										asm_file.writeText(not2())
+									
+						//////////////////////////////////////////////////////////////////////////
+									
+									case 'label'
+										asm_file.writeText(label(currentFileName, vec[1]))
+									
+									case 'goto'    
+										asm_file.writeText(goto(currentFileName, vec[1]))
+									
+									case "if-goto"
+										asm_file.writeText(i_f_goto(currentFileName, vec[1]))
+									
+									case 'call'     
+										asm_file.writeText(call(vec[1], vec[2]))
+									
+									case 'function' 
+										asm_file.writeText(f_unction(vec[1], vec[2]))
+										count_fun++
+									case 'return'   
+										  asm_file.writeText(r_eturn(currentFileName))
+										
+									default
+								end
+							end
+						end
+						vm_file.close()
+					end
+				end
+				asm_file.close()
+			end
+		end
+	end
+end
