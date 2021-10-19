@@ -1,0 +1,42 @@
+class table_symbol
+	table = []
+	
+	function startSubroution
+		table = []
+	end
+	
+	function add(m_nmae, m_type, m_kind, m_index)//define
+		table+=["name" => m_name, "type" => m_type, "kind" => m_kind, "index" => m_index]
+	end
+
+	function kindOf(m_name)
+		for tok in table
+			if tok["name"] == m_name
+				return tok["kind"]
+			end
+		end
+	end
+	
+	function typeOf(m_name)
+		for tok in table
+			if tok["name"] == m_name
+				return tok["type"]
+			end
+		end
+	end
+
+	function indexOf(m_name)
+		for tok in table
+			if tok["name"] == m_name
+				return tok["index"]
+			end
+		end
+	end
+
+end
+	//function varCount
+	//end
+/* = []
+new_symbol = ['name' => 'blabla', 'type' => 'int', 'kind' => 'this', 'index' => 0]
+symbols += symbol
+symbols["kind"]*/
