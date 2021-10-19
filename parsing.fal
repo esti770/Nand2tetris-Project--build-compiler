@@ -1,0 +1,518 @@
+class table_symbol()
+	table = []
+	
+	init
+		self.table = []
+	end
+	
+	function startSubroution()
+		self.table = []
+	end
+	
+	function add(m_name, m_type, m_kind, m_index)//define
+		self.table+=["name" => m_name, "type" => m_type, "kind" => m_kind, "index" => m_index]
+	end
+
+	function kindOf(m_name)
+		for tok in self.table
+			if tok["name"] == m_name
+				return tok["kind"]
+			end
+		end
+	end
+	
+	function typeOf(m_name)
+		for tok in self.table
+			if tok["name"] == m_name
+				return tok["type"]
+			end
+		end
+	end
+
+	function indexOf(m_name)
+		for tok in self.table
+			if tok["name"] == m_name
+				return tok["index"]
+			end
+		end
+	end
+
+end
+
+symbol_table = table_symbol()
+symbol_table_mthd = table_symbol()
+vm_file = ''
+
+vec_token = ""
+
+true_index = 0
+false_index = 0
+ennd_fi_index = 0
+
+whille_index = 0
+ennd_whille_index = 0
+
+clas_s_name = ""
+
+count_STATIC = 0
+count_FIELD = 0
+
+count_ARG = 0
+count_LCL = 0
+
+count_THIS = 0
+count_THAT = 0
+
+function statements() 
+	
+	line = next_token()
+	while len(vec_token)> 0 and "<keyword>" in line and "if" in line or "while" in line or "let" in line or "do" in line
+		compile_statement()
+		line = next_token()
+	end
+	
+	if "return" in line
+		compile_statement()
+	end
+end
+
+function subrotineCall()
+	func_name = current_token() //identifier	
+	
+	if '(' in next_token()
+		current_token()//'('
+		n = expression_list()+1
+		current_token()//')'
+		vm_file.writeText(@'
+push pointer 0\n
+call $clas_s_name.$func_name $n\n');
+		
+	elif '.' in next_token()
+		current_token()//'.'
+		subrotine_name = current_token()//subrotine name	
+		current_token()//'('
+		
+		kind = symbol_table.kindOf(func_name)
+		index = symbol_table.indexOf(func_name)
+		vm_file.writeText("push $kind $index\n")
+		expression_list()
+		vm_file.writeText("call $clas_s_name.$func_name $n\n")
+		current_token()//')'
+	end
+end
+
+function cla_ss_var_Dec()
+
+	kind = current_token()// 'static'|'field'
+	type = current_token()// 'void'|type
+	name = current_token()// 'varName' - identifier
+	
+	kind_tok = "static" in kind ? "static" : "field"
+	count = kind_tok == "static" ? count_STATIC++ : count_FIELD++
+	
+	symbol_table.add(name, type, kind_tok, count)
+	
+	while ',' in next_token()
+		current_token()// ','
+		name = current_token()// 'varName' - identifier
+		count = kind == "static" ? count_STATIC++ : count_FIELD++
+		symbol_table.add(name, type, kind, count)
+	end
+	current_token()// ';'
+	
+end
+
+function cla_ss_struct()
+
+	current_token()//keyword -- class
+	clas_s_name = current_token()//identifier -class name	
+	current_token()//'{'
+	
+	while 'static' in next_token() or 'field' in next_token()
+		cla_ss_var_Dec()
+	end
+	while 'constructor' in next_token() or 'function' in next_token() or 'method' in next_token()
+		subroutine_Dec()
+	end
+	
+	current_token()//'}'
+end
+
+function subroutine_Dec()
+	symbol_table_mthd.startSubroution()
+	count_ARG = 0
+	
+	func_kind = current_token()// 'constructor'|'function'|'method' - kind
+	func_type = current_token()// 'void'|type
+	func_name = current_token() //---------// 'subrotine name' - identifier
+	
+	current_token()//'('
+	if func_kind == "method"
+		symbol_table_mthd.add("this", clas_s_name, "argument", count_ARG++)
+	end
+	parameter_list()///---------
+	current_token(func_kind)//')'
+	
+	subroutine_Body()//return num of var_Dec : n
+end
+
+function subroutine_Body(kind)
+	count_var = 0
+	current_token()// '{'
+	while "var" in next_token()
+		var_Dec()
+		count_var++
+	end
+	
+	vm_file.writeText("function $clas_s_name.$func_name $count_var")///---------
+	
+	if "constructor" in kind
+		var_count = count_FIELD
+		vm_file.writeText(@'
+push constant $var_count
+call Memory.alloc 1 	
+pop pointer 0')//= 'this'
+		
+	elif "method" in kind
+		vm_file.writeText("
+push argument 0  
+pop pointer 0")//= RAM[THIS]	
+	end
+	
+	statements()
+	current_token()// '}'
+end
+
+function var_Dec()	
+	current_token()// 'var'
+	type = current_token()// type
+	name = current_token()// varName
+	symbol_table_mthd.add(name, type, "var", count_LCL++)
+	
+	while ',' in next_token()
+		current_token()//','
+		name = current_token()// varName
+		symbol_table_mthd.add(name, type, "var", count_LCL++)
+	end
+	current_token()//';'
+end
+
+function parameter_list()
+	count_prm = 0
+	if not ')' in next_token()
+		type = current_token()// type -int|char|boolean|className
+		name = current_token()// varName- identifier
+		symbol_table_mthd.add(name, type, "argument", count_ARG++)
+		count_prm++
+		
+		while ',' in next_token()
+			current_token()//','
+			type = current_token()// type -int|char|boolean|className
+			name = current_token()// varName- identifier
+			symbol_table_mthd.add(name, type, "argument", count_ARG++)
+		end
+	end
+	return count_prm
+end
+
+function expression_list()
+	count_exp = 0 
+	if not ')' in next_token()
+		count_exp +=1
+		expression()
+		while ',' in next_token()
+			current_token()//','
+			count_exp +=1
+			expression()
+		end
+	end
+	return count_exp
+end
+
+function term()
+	token_v = current_token().split()
+	val_token = token_v[1]
+	
+	if '<integerConstant>' in token_v
+		vm_file.writeText("push constant $val_token\n")
+	
+	elif '<stringConstant>' in token_v
+		length_str = len(val_token)
+		vm_file.writeText(@'
+push constant $length_str
+call String.new 1\n')
+		for i=0 to length_str
+			temp = numeric(val_token[i])
+			vm_file.writeText(@'
+push constant $temp 
+call String.appendChar 2\n')
+		end
+		
+	elif val_token == "True"
+		vm_file.writeText(@'
+push constant 0
+not\n')
+
+	elif val_token == "False" or val_token == "null"
+		vm_file.writeText("push constant 0\n")
+
+	elif val_token == "-" 
+		term()
+		vm_file.writeText("neg\n")
+		
+	elif val_token == "~"
+		term()
+		vm_file.writeText("not\n")
+	
+	elif '(' == val_token
+		expression()
+		current_token()//')'
+	
+	
+	elif '<identifier>' in token_v	
+		kind = symbol_table.kindOf(val_token)
+		index = symbol_table.indexOf(val_token)
+		if '[' in next_token()
+			current_token()//'['
+			expression()
+			current_token()//']'
+			vm_file.writeText(@'
+push $kind $index
+add
+pop pointer 1
+push that 0')
+		
+		elif '(' in next_token()
+			vm_file.writeText("push argument 0\n")
+			n = expression_list() +1
+			current_token()//')'
+			vm_file.writeText("call $val_token $n\n")
+	
+		elif '.' in next_token()
+			vm_file.writeText("push $kind $index\n")
+			current_token()//'.'
+			sub_name = current_token()//subrotine name	
+			current_token()//'('
+			n = expression_list()
+			current_token()//')'
+			vm_file.writeText(@"call $val_token.$sub_name $n\n")
+		end
+	end
+end
+
+function unary_op(token)
+	return '-' in token or '~' in token
+end
+
+function keyword_constant(token)
+	return "true" in token or "false" in token or "null" in token or "this" in token
+end
+
+function op(p)
+	p = p.split(' ')
+	return p[1] in ['+', '-', '*', '/', '|', '=', "&gt;", "&lt;", "&amp;"]
+end
+
+function next_token()
+	if len(vec_token) > 0
+		return vec_token[0]
+	end
+end
+
+function current_token()
+	if len(vec_token) > 0
+		cur = vec_token.front()
+		arrayHead(vec_token)
+		return cur
+	end
+	return
+end
+
+//-------------------------------------------------------------
+
+function expression()
+	term()
+	while op(next_token())
+		tok = current_token()//op
+		vec_tok = tok.split(" ")
+		operand = tok[1]
+		
+		switch operand//
+			case '+'//
+				vm_file.writeText("add\n")
+			case '-'//
+				vm_file.writeText("sub\n")
+			case '*'
+				vm_file.writeText("call Math.multiply 2\n")
+			case '/'
+				vm_file.writeText("call Math.divide 2\n")
+			case "&amp" //=========================
+				vm_file.writeText("and\n")
+			case '|' //=========================
+				vm_file.writeText("or\n")
+			case "&lt" //=========================
+				vm_file.writeText("lt\n")
+			case "&gt" //=========================
+				vm_file.writeText("gt\n")
+			case '='//=========================
+				vm_file.writeText("eq\n")
+			default
+		end
+		term()//============================================order the operand
+	end
+end
+//---------------------------------------------------------------
+
+function compile_If_Statement() 
+// code for compiling an if statements
+	
+	vm_file.writeText(@'
+if-goto IF_TRUE$true_index
+goto IF_FALSE$false_index')
+	current_token() //'if'
+	current_token() //'('
+	expression() //expressionS
+	current_token() //')'
+	
+	vm_file.writeText(@"label IF_TRUE$true_index")
+	current_token() //'{'
+	statements() //statements
+	current_token() //'}'	
+	vm_file.writeText("goto IF_END$ennd_fi_index")
+	
+	vm_file.writeText(@"label IF_FALSE$false_index")
+	if 'else' in next_token() 
+		current_token() //'else'
+		
+		current_token() //'{'
+		statements() //statements
+		current_token() //'}'
+	end
+	
+	vm_file.writeText(@"label IF_END$ennd_fi_index")
+end
+
+function compile_While_Statement()
+// code for compiling an while statements
+	
+	vm_file.writeText(@"label WHILE_EXP$whille_index")
+	
+	current_token() //'while'
+	current_token() //'('
+	expression() //expression
+	current_token() //')'
+	
+	vm_file.writeText(@'
+not
+if-goto WHILE_END$ennd_whille_index')
+	
+	current_token() //'{'
+	statements() //statements
+	current_token() //'}'
+	
+	vm_file.writeText(@'
+goto WHILE_EXP$whille_index
+label WHILE_END$ennd_whille_index')
+end
+
+function compile_Let_Statement()
+	
+	current_token()//'let'
+	name = current_token()//varName
+	kind_tok = symbol_table.kindOf(name)
+	index_tok = symbol_table.indexOf(name)
+	
+	smbl = next_token()
+	if '[' in  smbl
+		current_token() //'['
+		expression() //expression
+		current_token() //']'
+		
+		vm_file.writeText(@'
+push $kind_tok $index_tok
+add')
+	end
+	
+	current_token()// '='
+	expression() //expression
+	current_token()//';'
+
+	if '[' in  smbl
+		vm_file.writeText("
+pop temp 0
+pop pointer 1
+push temp 0
+pop that 0")
+	else 
+		vm_file.writeText("pop $kind_tok $index_tok")
+	end
+//pop pointer 1 //=THAT
+end
+
+function compile_Do_Statement()
+	
+	current_token()//'do'
+	subrotineCall()
+	current_token()//';'
+end
+
+function compile_Return_Statement()
+
+	current_token() //'return'
+	if  not ';' in next_token() 
+		expression()
+	else 
+		vm_file.writeText("push constant 0\n")
+	end
+	vm_file.writeText("return\n")
+	current_token()// ';'
+end
+
+function compile_statement()
+// code for compiling statements	
+	line = next_token()
+	if "<keyword>" in line 
+		if "if" in line
+			compile_If_Statement()
+
+		elif "while" in line
+			compile_While_Statement()
+
+		elif "let" in line
+			compile_Let_Statement()
+
+		elif "do" in line
+			compile_Do_Statement()
+			vm_file.writeText("pop temp 0\n")
+
+		elif "return" in line
+			compile_Return_Statement()
+		end
+	end
+end
+
+path_dir = "C:\\Users\\estri\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\nand2tetris\\nand2tetris\\projects\\10"
+dir = Directory(path_dir)
+for dr in dir.read
+	if(dr[0] != '.') //and dr == "ExpressionLessSquare"
+		path_0 = path_dir + "\\" + dr
+		dir_0 = Directory(path_0)
+		for file in dir_0.read
+
+			if file[-6:] == "TT.xml"
+				jack_file = InputStream(path_0+ "\\" + file)
+				vm_file = OutputStream(path_0 + "\\" + file[:-6] +"PRS.vm")
+				
+				str = ''
+				i = 0
+				for line in jack_file.grabLine
+					str += line + "\n"
+				end
+				vec_token = str.split("\n")
+				vec_token = vec_token[1:len(vec_token)-2] // --"token"
+				
+				cla_ss_struct()
+			end
+		end
+	end
+end					
