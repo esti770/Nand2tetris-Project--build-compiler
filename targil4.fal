@@ -1,0 +1,119 @@
+type = ["symbol", "keyword", "identifier", "integerConstant", "stringConstant"] // num = 3 | str = 8
+keyword =  ["class", "constructor", "function",
+			"method", "field", "static", "var", "int",
+			"char", "boolean", "void", "true", "false",
+			"null", "this", "let", "do", "if", "else",
+			"while", "return"]
+symbol = ['{', '}', '(', ')', '[', ']', '.', ',', ';',
+		'+', '-', '*', '/', '&', '|', '<', '>', '=', '~']
+
+function ennd_of_word(next)
+	
+	return next == 0 or next == ' ' or next == '	' or next in symbol // space, tab, symbol
+end
+
+function is_symbol(word)
+
+	return word in symbol
+end
+
+function is_keyword(word)
+
+	return word in keyword
+end
+
+function is_numeric(word)
+
+	try
+		numeric(word)
+	catch 
+		return false //numeric 3
+	end
+	return true
+end
+
+function is_identi_fier(word)
+
+	return not is_numeric(word[0])
+end
+
+path_dir = "C:\\Users\\estri\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\nand2tetris\\nand2tetris\\projects\\10"
+dir = Directory(path_dir)
+for dr in dir.read
+	if(dr[0] != '.')// and dr == "ExpressionLessSquare"
+		path_0 = path_dir + "\\" + dr
+		dir_0 = Directory(path_0)
+		for file in dir_0.read
+			if(file[-5:] == ".jack")
+				jack_file = InputStream(path_0+ "\\" + file)
+				xml_file = OutputStream(path_0 + "\\" + file[:-5] +"TT.xml")
+				xml_file.writeText("<tokens>\n")
+				for line in jack_file.grabLine
+					if not "//" in line[:5] and line[:2] != '/*' and line[:2] != ' *'
+						start = 0 //start
+						i = 0 //stop
+						while i < len(line)
+							current = line[i] 
+							next = i+1 == len(line)? 0 : line[i+1]
+							if current == ' ' or current == '	'
+								start = i+1
+							
+							elif current == '"'
+								i++
+								while line[i] != '"'
+									i++
+								end
+								word = line[start+1:i]
+								
+								start = i+1
+								my_type = "stringConstant"
+								xml_file.writeText(@"<$my_type> $word </$my_type>\n")
+							
+							elif line[i:i+2] == "//" or line[i:i+3] == '/**'
+								i = len(line)
+								
+							elif is_symbol(current)
+								word = line[start:i+1]
+								start = i+1
+								switch word
+									case '<'
+										word = "&lt;"
+									case '>'
+										word = "&gt;"
+									case '"'
+										word = "&quot;"
+									case '&'
+										word = "&amp;"
+									default
+								end
+								my_type = "symbol"
+								xml_file.writeText(@"<$my_type> $word </$my_type>\n")
+								
+							elif ennd_of_word(next)
+								word = line[start:i+1]
+								start = i+1					
+
+								if is_keyword(word)
+									my_type = "keyword"
+
+								elif is_numeric(word)
+									my_type = "integerConstant"
+
+								elif is_identi_fier(word) or '_'
+									my_type = "identifier"
+								
+								end
+								xml_file.writeText(@"<$my_type> $word </$my_type>\n")
+							end
+							i++	
+						end
+					end
+				end
+				xml_file.writeText("</tokens>")
+				
+				jack_file.close()
+				xml_file.close()
+			end
+		end
+	end
+end
