@@ -1,0 +1,328 @@
+path_vm='C:\\Users\\estri\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\nand2tetris\\nand2tetris\\projects\\07\\MemoryAccess\\StaticTest\\StaticTest.vm'
+path_asm='C:\\Users\\estri\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\nand2tetris\\nand2tetris\\projects\\07\\MemoryAccess\\StaticTest\\StaticTest.asm'
+vm_file = InputStream(path_vm)
+asm_file = OutputStream(path_asm)
+
+count_true=0
+count_false=0
+
+for line in vm_file.grabLine
+	if line[:2] != '//'	and line[:2] != ''
+		vec = strSplit(line, ' ')
+		switch vec[0]
+			case 'push'
+				switch vec[1]
+					case 'local', 'argument', 'this', 'that'
+						if vec[1] == 'local' 
+							seg='LCL'
+						end
+						if vec[1] == 'argument'
+							seg='ARG'
+						end
+						if vec[1] == 'this' 
+							seg='THIS'
+						end
+						if vec[1] == 'that'
+							seg='THAT'
+						end
+						off = vec[2]
+						asm_file.writeText(@'
+						
+@$seg
+D=M
+@$off
+A=D+A
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1')
+					
+					case 'pointer', 'temp' 
+						seg_num = vec[1] == 'pointer' ? '3' : '5'
+						off = vec[2]
+						asm_file.writeText(@'
+						
+@$seg_num
+D=A
+@$off
+A=D+A
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1')
+					
+					case 'static'
+						vec_vm = strSplit(path_vm, '\\')
+						FileName = vec_vm[-1]
+						currentFileName = FileName[:-3]
+						point = '.'
+						off = vec[2]
+						asm_file.writeText(@'
+
+@$currentFileName$point$off
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1')  			
+					case 'constant'
+						off = vec[2] 
+						asm_file.writeText(@'
+
+@$off
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1')
+					
+					default
+				end
+			case 'pop'
+				switch vec[1]
+					case 'local', 'argument', 'this', 'that'
+						if vec[1] == 'local' 
+							seg='LCL'
+						end
+						if vec[1] == 'argument'
+							seg='ARG'
+						end
+						if vec[1] == 'this' 
+							seg='THIS'
+						end
+						if vec[1] == 'that'
+							seg='THAT'
+						end
+						off = vec[2]
+						
+						asm_file.writeText(@'
+						
+@$seg
+D=M
+@$off
+D=D+A
+@13
+M=D
+@SP
+M=M-1
+@SP
+A=M
+D=M
+@13
+A=M
+M=D')	
+					case 'pointer', 'temp' 
+						seg_num = vec[1] == 'pointer' ? '3' : '5'
+						off = vec[2]
+						asm_file.writeText(@'
+						
+@$seg_num
+D=A
+@$off
+D=D+A
+@13
+M=D
+@SP
+M=M-1
+@SP
+A=M
+D=M
+@13
+A=M
+M=D')
+					case 'static'
+						vec_vm = strSplit(path_vm, '\\')
+						FileName = vec_vm[-1]
+						currentFileName = FileName[:-3]
+						point = '.'
+						off = vec[2]
+						asm_file.writeText(@'
+
+@$currentFileName$point$off
+D=A
+@13
+M=D
+@SP
+M=M-1
+@SP
+A=M
+D=M
+@13
+A=M
+M=D')		
+					case 'constant'
+						off = vec[2] 
+						asm_file.writeText(@'
+
+@SP
+M=M-1')
+					default
+				end
+			case 'add'
+				asm_file.writeText('
+	
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M+D
+@SP
+M=M-1')
+			
+			case 'sub'
+				asm_file.writeText('
+				
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M-D
+@SP
+M=M-1')
+			case 'neg'//neg
+				asm_file.writeText('
+
+@SP
+A=M
+A=A-1
+D=M
+M=-D')
+			
+			case 'eq'
+				asm_file.writeText(@'
+
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+D=M-D
+@IF_TRUE$count_true
+D;JEQ
+D=0
+@SP
+A=M-1
+A=A-1
+M=D
+@IF_FALSE$count_false
+0;JMP
+(IF_TRUE$count_true)
+D=-1
+@SP
+A=M-1
+A=A-1
+M=D
+(IF_FALSE$count_false)    
+@SP
+M=M-1')
+				count_true++
+				count_false++
+
+			case 'gt'
+				asm_file.writeText(@'
+
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+D=M-D
+@IF_TRUE$count_true
+D;JGT
+D=0
+@SP
+A=M-1
+A=A-1
+M=D
+@IF_FALSE$count_false
+0;JMP
+(IF_TRUE$count_true)
+D=-1
+@SP
+A=M-1
+A=A-1
+M=D
+(IF_FALSE$count_false)
+@SP
+M=M-1')
+				count_true++
+				count_false++
+
+			case 'lt'
+				asm_file.writeText(@'
+
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+D=M-D
+@IF_TRUE$count_true
+D;JLT
+D=0
+@SP
+A=M-1
+A=A-1
+M=D
+@IF_FALSE$count_false
+0;JMP
+(IF_TRUE$count_true)
+D=-1
+@SP
+A=M-1
+A=A-1
+M=D
+(IF_FALSE$count_false)
+@SP
+M=M-1')
+				count_true++
+				count_false++
+			
+			case 'and'//and
+				asm_file.writeText('
+				
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M&D
+@SP
+M=M-1')
+			
+			case 'or'//or
+				asm_file.writeText('
+				
+@SP
+A=M
+A=A-1
+D=M
+A=A-1
+M=M|D
+@SP
+M=M-1')
+			
+			case 'not'
+				asm_file.writeText('
+				
+@SP
+A=M
+A=A-1
+D=M
+M=!D')
+			
+			default
+		end
+	end
+end
+
+vm_file.close()
+asm_file.close()
